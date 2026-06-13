@@ -1,0 +1,15 @@
+# Credenciales / secretos
+code/credentials.json
+
+# Datos sensibles (facturación, logs, salidas)
+Data-bases/
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Editor
+.vscode/

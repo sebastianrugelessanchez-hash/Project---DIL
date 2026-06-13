@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "R001",
+      "name": "Exclusión total por factura intercompany (invoice_il)",
+      "description": "Si el campo ZZVBELN_IL en VL06F comienza por '7', el ticket ya cuenta con una factura intercompany y se EXCLUYE del procesamiento completo (no entra a ningún batch). Estos tickets se persisten en tickets_con_factura del state y aparecen en el sheet 'Con Factura' del reporte xlsx, indicando que requieren cancelación manual de la factura primero antes de poder procesarse.",
+      "transaction": "VL06F",
+      "column": "ZZVBELN_IL",
+      "condition": "starts_with('7')",
+      "action": "exclude_ticket_from_pipeline",
+      "implemented_in": "code/main.py → process_chunk (tickets_con_factura se filtra ANTES de tickets_activos)"
+    },
+    {
+      "id": "R002",
+      "name": "Prerequisito acumulativo para eliminación de órdenes ZCMR",
+      "description": "Solo los tickets que completaron exitosamente TODOS los pasos anteriores avanzan al Paso 7 (eliminación de órdenes en ZCMR). Un fallo en cualquier batch excluye al ticket de los pasos siguientes.",
+      "transaction": "ZCMR / VA02 / ME22N",
+      "prerequisites_in_order": [
+        "BATCH 1 — Billing Document eliminado (VF11)",
+        "BATCH 2 — Shipment Cost eliminado (VI05)",
+        "BATCH 3 — Shipment Number eliminado (VT02N)",
+        "BATCH 4 — Reverse PGI completado (VL09)",
+        "PASO 6  — BOL Deletion completado (VL06F)"
+      ],
+      "action": "proceed_to_zcmr_order_deletion",
+      "implemented_in": "code/main.py → variable tickets_activos se filtra batch a batch"
+    },
+    {
+      "id": "R003",
+      "name": "Routing de órdenes por prefijo (intracompany vs intercompany)",
+      "description": "El tipo de orden determina la transacción de eliminación: las órdenes intracompany (cuyo número empieza por '47') se eliminan vía ME22N (Purchase Order); el resto (intercompany) se elimina vía VA02 (Sales Order).",
+      "transaction": "VA02 / ME22N",
+      "column": "order",
+      "routing": [
+        {
+          "condition": "starts_with('47')",
+          "classification": "intracompany",
+          "transaction": "ME22N",
+          "action": "delete_purchase_order_line"
+        },
+        {
+          "condition": "default",
+          "classification": "intercompany",
+          "transaction": "VA02",
+          "action": "delete_sales_order_or_line"
+        }
+      ],
+      "implemented_in": "code/sap_orders.py → delete_orders_from_zcmr (is_intracompany = order[:2] == '47')"
+    }
+  ]
+}

@@ -11,8 +11,8 @@ __pycache__/
 # Logs
 *.log
 
-# Macros VBA
-Macro/VBA/
+# Macros
+Macro/
 
 # Editor
 .vscode/
